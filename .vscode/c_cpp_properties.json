@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "PlatformIO",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include/**",
+                "C:/Users/${env:USERNAME}/.platformio/packages/framework-arduinoespressif32/cores/esp32/**",
+                "C:/Users/${env:USERNAME}/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/**",
+                "C:/Users/${env:USERNAME}/.platformio/packages/framework-arduinoespressif32/libraries/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "ARDUINO=100",
+                "PLATFORMIO"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64"
+        }
+    ],
+    "version": 4
+} 
