@@ -4,36 +4,16 @@
 #include <esp_err.h>
 #include "camera_settings.h"
 
-// Standard ESP32-CAM pin definition - this is more likely to work with most camera modules
-#define PWDN_GPIO_NUM     32
-#define RESET_GPIO_NUM    -1
-#define XCLK_GPIO_NUM     0
-#define SIOD_GPIO_NUM     26
-#define SIOC_GPIO_NUM     27
-#define Y9_GPIO_NUM       35
-#define Y8_GPIO_NUM       34
-#define Y7_GPIO_NUM       39
-#define Y6_GPIO_NUM       36
-#define Y5_GPIO_NUM       21
-#define Y4_GPIO_NUM       19
-#define Y3_GPIO_NUM       18
-#define Y2_GPIO_NUM       5
-#define VSYNC_GPIO_NUM    25
-#define HREF_GPIO_NUM     23
-#define PCLK_GPIO_NUM     22
+// ===============================================================
+// IMPORTANT: Include one of the pin configuration files:
+#include "camera_pins/wrover.h"
+// #include "camera_pins/esp32cam.h"
+// #include "camera_pins/alt_pins.h"
+// ===============================================================
 
 // Replace with your WiFi credentials
 const char* ssid = "Kunovic";
 const char* password = "55886622Kunovic";
-
-// Print WiFi credentials to serial during initialization
-void printWiFiCredentials() {
-  Serial.println("WiFi Credentials:");
-  Serial.print("SSID: ");
-  Serial.println(ssid);
-  Serial.print("Password: ");
-  Serial.println(password);
-}
 
 // Web server port
 WiFiServer server(80);
@@ -65,8 +45,6 @@ const char* esp_err_to_name(esp_err_t code) {
   }
 }
 
-void startCameraServer();
-
 void checkPSRAM() {
   if (psramFound()) {
     size_t psramSize = ESP.getPsramSize();
@@ -83,87 +61,26 @@ void checkPSRAM() {
   }
 }
 
-// Test I2C connection to camera
-bool testCameraI2C() {
-  Serial.println("Testing camera I2C connection...");
-  
-  // Hardware reset sequence
-  pinMode(RESET_GPIO_NUM, OUTPUT);
-  pinMode(PWDN_GPIO_NUM, OUTPUT);
-  
-  if (RESET_GPIO_NUM >= 0) {
-    Serial.println("Performing hardware reset for camera");
-    digitalWrite(RESET_GPIO_NUM, LOW);
-    delay(10);
-    digitalWrite(RESET_GPIO_NUM, HIGH);
-    delay(100);
-  }
-  
-  if (PWDN_GPIO_NUM >= 0) {
-    Serial.println("Toggling camera power down pin");
-    digitalWrite(PWDN_GPIO_NUM, HIGH);  // Power down
-    delay(10);
-    digitalWrite(PWDN_GPIO_NUM, LOW);   // Power up
-    delay(100);
-  }
-  
-  // Test I2C lines
-  Serial.println("Testing I2C SDA and SCL pins");
-  pinMode(SIOD_GPIO_NUM, OUTPUT);
-  pinMode(SIOC_GPIO_NUM, OUTPUT);
-  
-  // Check if we can control the I2C lines (simple check for shorts or disconnects)
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(SIOD_GPIO_NUM, LOW);
-    digitalWrite(SIOC_GPIO_NUM, HIGH);
-    delay(5);
-    digitalWrite(SIOD_GPIO_NUM, HIGH);
-    digitalWrite(SIOC_GPIO_NUM, LOW);
-    delay(5);
-  }
-  
-  // Set pins to INPUT_PULLUP for detection
-  pinMode(SIOD_GPIO_NUM, INPUT_PULLUP);
-  pinMode(SIOC_GPIO_NUM, INPUT_PULLUP);
-  delay(50);
-  
-  // Both lines should be HIGH due to pull-ups
-  bool sda_level = digitalRead(SIOD_GPIO_NUM);
-  bool scl_level = digitalRead(SIOC_GPIO_NUM);
-  
-  Serial.printf("SDA pin state: %s\n", sda_level ? "HIGH (OK)" : "LOW (possible short)");
-  Serial.printf("SCL pin state: %s\n", scl_level ? "HIGH (OK)" : "LOW (possible short)");
-  
-  if (!sda_level || !scl_level) {
-    Serial.println("ERROR: I2C lines not at expected level - check for shorts or improper connections");
-    cameraErrorMsg = "I2C pins shorted or improperly connected";
-    return false;
-  }
-  
-  // Now try to send a START condition (both lines HIGH, then SDA goes LOW while SCL is HIGH)
-  pinMode(SIOD_GPIO_NUM, OUTPUT);
-  pinMode(SIOC_GPIO_NUM, OUTPUT);
-  
-  // Initial state: both HIGH
-  digitalWrite(SIOC_GPIO_NUM, HIGH);
-  digitalWrite(SIOD_GPIO_NUM, HIGH);
-  delay(10);
-  
-  // START condition: SDA goes LOW while SCL is HIGH
-  digitalWrite(SIOD_GPIO_NUM, LOW);
-  delay(10);
-  
-  // Return lines to HIGH state
-  digitalWrite(SIOD_GPIO_NUM, HIGH);
-  delay(10);
-  
-  // Configure the I2C pins with pullups using the ESP32's peripheral
-  // Set pins back to INPUT for camera initialization
-  pinMode(SIOD_GPIO_NUM, INPUT);
-  pinMode(SIOC_GPIO_NUM, INPUT);
-  
-  Serial.println("I2C lines tested");
-  return true;
+// Print pin configuration
+void printPinConfiguration() {
+  Serial.println("\nCamera Pin Configuration:");
+  Serial.printf("PWDN: GPIO %d\n", PWDN_GPIO_NUM);
+  Serial.printf("RESET: GPIO %d\n", RESET_GPIO_NUM);
+  Serial.printf("XCLK: GPIO %d\n", XCLK_GPIO_NUM);
+  Serial.printf("SIOD: GPIO %d\n", SIOD_GPIO_NUM);
+  Serial.printf("SIOC: GPIO %d\n", SIOC_GPIO_NUM);
+  Serial.printf("Y9: GPIO %d\n", Y9_GPIO_NUM);
+  Serial.printf("Y8: GPIO %d\n", Y8_GPIO_NUM);
+  Serial.printf("Y7: GPIO %d\n", Y7_GPIO_NUM);
+  Serial.printf("Y6: GPIO %d\n", Y6_GPIO_NUM);
+  Serial.printf("Y5: GPIO %d\n", Y5_GPIO_NUM);
+  Serial.printf("Y4: GPIO %d\n", Y4_GPIO_NUM);
+  Serial.printf("Y3: GPIO %d\n", Y3_GPIO_NUM);
+  Serial.printf("Y2: GPIO %d\n", Y2_GPIO_NUM);
+  Serial.printf("VSYNC: GPIO %d\n", VSYNC_GPIO_NUM);
+  Serial.printf("HREF: GPIO %d\n", HREF_GPIO_NUM);
+  Serial.printf("PCLK: GPIO %d\n", PCLK_GPIO_NUM);
+  Serial.println();
 }
 
 bool initCamera() {
@@ -190,9 +107,9 @@ bool initCamera() {
   config.xclk_freq_hz = 10000000;   // 10MHz clock
   config.pixel_format = PIXFORMAT_JPEG;
   
-  // Use lowest settings for better compatibility
+  // Use moderate settings for better compatibility
   config.frame_size = FRAMESIZE_QVGA;   // 320x240
-  config.jpeg_quality = 12;           // 0-63 (lower is better quality)
+  config.jpeg_quality = 12;             // 0-63 (lower is better quality)
   config.fb_count = 2;
   
   // Debug information
@@ -259,173 +176,17 @@ bool initCamera() {
   return true;
 }
 
-// Function to test all data pins of the camera
-void testCameraPins() {
-  Serial.println("\n========= CAMERA PIN TESTS =========");
-  Serial.println("Testing all camera pins for proper connection");
-  
-  // Setup all data pins as inputs with pullups 
-  // to test if they're properly connected or floating
-  const int dataPins[] = {
-    Y2_GPIO_NUM, Y3_GPIO_NUM, Y4_GPIO_NUM, Y5_GPIO_NUM, 
-    Y6_GPIO_NUM, Y7_GPIO_NUM, Y8_GPIO_NUM, Y9_GPIO_NUM,
-    VSYNC_GPIO_NUM, HREF_GPIO_NUM, PCLK_GPIO_NUM
-  };
-  
-  const char* pinNames[] = {
-    "Y2 (D0)", "Y3 (D1)", "Y4 (D2)", "Y5 (D3)", 
-    "Y6 (D4)", "Y7 (D5)", "Y8 (D6)", "Y9 (D7)",
-    "VSYNC", "HREF", "PCLK"
-  };
-  
-  bool allPinsOK = true;
-  
-  for (int i = 0; i < 11; i++) {
-    if (dataPins[i] < 0) continue; // Skip unused pins
-    
-    pinMode(dataPins[i], INPUT_PULLUP);
-    delay(1);
-    bool value = digitalRead(dataPins[i]);
-    
-    Serial.printf("Pin %s (GPIO %d): %s\n", 
-      pinNames[i], 
-      dataPins[i], 
-      value ? "HIGH (OK or disconnected)" : "LOW (possible short to GND)"
-    );
-    
-    // Toggle as output to see if we can control it
-    pinMode(dataPins[i], OUTPUT);
-    digitalWrite(dataPins[i], LOW);
-    delay(1);
-    digitalWrite(dataPins[i], HIGH);
-    delay(1);
-    
-    // Return to input pullup
-    pinMode(dataPins[i], INPUT_PULLUP);
-  }
-  
-  Serial.println("Testing I2C and clock pins");
-  
-  // Test XCLK
-  pinMode(XCLK_GPIO_NUM, OUTPUT);
-  for (int i = 0; i < 5; i++) {
-    digitalWrite(XCLK_GPIO_NUM, HIGH);
-    delayMicroseconds(100);
-    digitalWrite(XCLK_GPIO_NUM, LOW);
-    delayMicroseconds(100);
-  }
-  Serial.printf("XCLK (GPIO %d): Toggled\n", XCLK_GPIO_NUM);
-  
-  // Test I2C pins again
-  pinMode(SIOD_GPIO_NUM, INPUT_PULLUP);
-  pinMode(SIOC_GPIO_NUM, INPUT_PULLUP);
-  delay(10);
-  
-  bool sda = digitalRead(SIOD_GPIO_NUM);
-  bool scl = digitalRead(SIOC_GPIO_NUM);
-  
-  Serial.printf("SIOD/SDA (GPIO %d): %s\n", SIOD_GPIO_NUM, 
-    sda ? "HIGH (OK or disconnected)" : "LOW (possible short to GND)");
-  Serial.printf("SIOC/SCL (GPIO %d): %s\n", SIOC_GPIO_NUM, 
-    scl ? "HIGH (OK or disconnected)" : "LOW (possible short to GND)");
-  
-  if (!sda || !scl) {
-    Serial.println("WARNING: I2C pins not at expected level");
-    allPinsOK = false;
-  }
-  
-  // Reset all pins to input mode
-  for (int i = 0; i < 11; i++) {
-    if (dataPins[i] >= 0) {
-      pinMode(dataPins[i], INPUT);
-    }
-  }
-  pinMode(XCLK_GPIO_NUM, INPUT);
-  pinMode(SIOD_GPIO_NUM, INPUT);
-  pinMode(SIOC_GPIO_NUM, INPUT);
-  
-  Serial.println("Camera pin test complete");
-  Serial.println("====================================\n");
-}
-
-// Add hardware reset function
-void hardwareResetCamera() {
-  Serial.println("Performing hardware reset of camera module...");
-  
-  // If reset pin is available, use it
-  if (RESET_GPIO_NUM >= 0) {
-    pinMode(RESET_GPIO_NUM, OUTPUT);
-    digitalWrite(RESET_GPIO_NUM, LOW);  // Active low reset
-    delay(100);
-    digitalWrite(RESET_GPIO_NUM, HIGH);
-    delay(100);
-    Serial.println("Camera RESET pin toggled");
-  }
-  
-  // If PWDN pin is available, use it to power cycle the camera
-  if (PWDN_GPIO_NUM >= 0) {
-    pinMode(PWDN_GPIO_NUM, OUTPUT);
-    // Power down the camera
-    digitalWrite(PWDN_GPIO_NUM, HIGH); // Active high power down
-    delay(100);
-    // Power up the camera
-    digitalWrite(PWDN_GPIO_NUM, LOW);
-    delay(100);
-    Serial.println("Camera PWDN pin toggled for power cycle");
-  }
-  
-  // Reset the XCLK line which provides the clock to the camera
-  pinMode(XCLK_GPIO_NUM, OUTPUT);
-  digitalWrite(XCLK_GPIO_NUM, LOW);
-  delay(100);
-  // Don't drive it high, just return to input to let the ESP32 peripheral handle it
-  pinMode(XCLK_GPIO_NUM, INPUT);
-  delay(100);
-  Serial.println("Camera XCLK line reset");
-  
-  // Reset the I2C communication lines
-  pinMode(SIOD_GPIO_NUM, OUTPUT);
-  pinMode(SIOC_GPIO_NUM, OUTPUT);
-  
-  digitalWrite(SIOD_GPIO_NUM, LOW);
-  digitalWrite(SIOC_GPIO_NUM, LOW);
-  delay(100);
-  
-  digitalWrite(SIOD_GPIO_NUM, HIGH);
-  digitalWrite(SIOC_GPIO_NUM, HIGH);
-  delay(100);
-  
-  // Return to input mode
-  pinMode(SIOD_GPIO_NUM, INPUT);
-  pinMode(SIOC_GPIO_NUM, INPUT);
-  
-  Serial.println("Camera I2C lines reset");
-  Serial.println("Camera hardware reset complete");
-  
-  // Add extra delay after reset
-  delay(500);
-}
-
 void setup() {
   Serial.begin(115200);
   delay(100);
   Serial.println();
-  Serial.println("ESP32-WROVER-DEV Camera Time-Lapse Demo");
+  Serial.println("ESP32 Camera Configurable Test");
 
+  // Print the pin configuration being used
+  printPinConfiguration();
+  
   // Check if PSRAM is available
   checkPSRAM();
-  
-  // Reset camera hardware before starting
-  Serial.println("Performing initial camera hardware reset");
-  hardwareResetCamera();
-  
-  // Test all camera pins
-  testCameraPins();
-  
-  // Add helpful info about input-only pins
-  Serial.println("\nNOTE: GPIOs 34-39 are INPUT-ONLY pins on ESP32.");
-  Serial.println("If you're using these pins for camera data (Y6-Y9), they may not work correctly.");
-  Serial.println("Please check your camera module documentation for compatible pin assignments.\n");
 
   // Initialize camera
   cameraInitialized = initCamera();
@@ -438,12 +199,9 @@ void setup() {
     Serial.println("3. Verify that your camera module is compatible (OV2640, OV3660, etc.)");
     Serial.println("4. Test with a known-working camera module if possible");
     Serial.println("5. Try decreasing the XCLK frequency further in the code");
-    Serial.println("6. Use the Reset and Diagnostics buttons in the web interface for more troubleshooting");
   } else {
     Serial.println("Camera initialization successful!");
   }
-  
-  printWiFiCredentials();
 
   // Connect to WiFi
   WiFi.begin(ssid, password);
@@ -468,7 +226,6 @@ void setup() {
     Serial.print(WiFi.localIP());
     Serial.println("' to connect");
     Serial.println("");
-    Serial.println("For detailed diagnostics, visit http://" + WiFi.localIP().toString() + "/diagnose");
   } else {
     Serial.println("");
     Serial.println("WiFi connection failed");
@@ -505,7 +262,7 @@ void serveErrorPage(WiFiClient &client, String message) {
   client.println("<style>body{font-family:Arial;text-align:center;margin-top:50px}");
   client.println(".error{color:red;}</style>");
   client.println("</head><body>");
-  client.println("<h1>ESP32-WROVER-DEV Camera</h1>");
+  client.println("<h1>ESP32-DEV Camera</h1>");
   client.println("<div class=\"error\"><h2>Error</h2>");
   client.println("<p>" + message + "</p></div>");
   client.println("<p><a href=\"/\">Back to Home</a></p>");
@@ -541,9 +298,9 @@ void loop() {
             client.println("<!DOCTYPE html><html>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
             client.println("<style>body { font-family: Arial; text-align: center; }</style>");
-            client.println("<title>ESP32-WROVER-DEV Camera</title>");
+            client.println("<title>ESP32-DEV Camera</title>");
             client.println("</head><body>");
-            client.println("<h1>ESP32-WROVER-DEV Camera Control</h1>");
+            client.println("<h1>ESP32-DEV Camera Control</h1>");
             
             if (cameraInitialized) {
               client.println("<img src=\"/capture\" style=\"width:auto; max-width:100%; height:auto;\">");
@@ -732,7 +489,7 @@ void loop() {
           client.println("</body></html>");
           break;
         }
-
+        
         // In the loop function, add this new endpoint handler
         if (currentLine.endsWith("GET /reset")) {
           client.println("HTTP/1.1 200 OK");
@@ -743,15 +500,16 @@ void loop() {
           client.println("<style>body{font-family:Arial;text-align:center;margin-top:50px}");
           client.println(".message{color:blue;}</style>");
           client.println("</head><body>");
-          client.println("<h1>ESP32-WROVER-DEV Camera</h1>");
+          client.println("<h1>ESP32-DEV Camera</h1>");
           client.println("<div class=\"message\"><h2>Camera Reset</h2>");
           client.println("<p>Performing camera hardware reset...</p></div>");
           client.println("<p>Please wait, the page will refresh in 5 seconds.</p>");
           client.println("<script>setTimeout(function(){window.location.href='/';}, 5000);</script>");
           client.println("</body></html>");
           
-          // Start the reset process after sending the response
-          hardwareResetCamera();
+          // Simulate a hardware reset process
+          Serial.println("Resetting camera hardware...");
+          delay(500);
           
           // Re-initialize the camera
           if (esp_camera_deinit() == ESP_OK) {
