@@ -2,11 +2,54 @@
 
 A basic PlatformIO project for ESP32-WROVER-DEV with camera support and time-lapse functionality.
 
+![ESP32-WROVER-DEV Board](readme-hardwareINFO.jpg)
+
+## Project Code Structure
+
+This project contains two main entry points:
+
+### 1. main.cpp
+
+This is the original, standard implementation of the ESP32 camera time-lapse project with:
+- Fixed ESP32-CAM pin configuration
+- Basic web interface for camera control
+- Time-lapse functionality
+- Primarily intended for debugging and quick setup
+
+### 2. main_configurable.cpp
+
+This is the enhanced, configurable version with:
+- Support for multiple camera pin configurations through header files
+- Improved error handling and debugging output
+- Enhanced camera initialization process
+- More detailed pin configuration output
+- Better PSRAM utilization
+
+## Selecting Which Main File to Use
+
+The project is configured to use `main_configurable.cpp` by default. To switch between the two versions:
+
+1. Open `platformio.ini`
+2. Modify the `build_src_filter` parameter:
+
+```ini
+; To use main_configurable.cpp (default)
+build_src_filter = 
+    -<main.cpp>
+    +<main_configurable.cpp>
+
+; OR to use main.cpp instead
+; build_src_filter = 
+;     +<main.cpp>
+;     -<main_configurable.cpp>
+```
+
 ## Hardware Requirements
 
 - ESP32-WROVER-DEV board
 - Compatible camera module (OV2640, OV3660, etc.)
 - USB cable for programming and power
+- External 5V power supply (recommended for stable operation)
 
 ## Camera Connection
 
@@ -30,6 +73,19 @@ Connect the camera to your ESP32-WROVER-DEV using the following pins:
 | SCL        | GPIO 27   |
 | PWDN       | Not used  |
 | RESET      | Not used  |
+
+## Pin Configuration Options
+
+When using `main_configurable.cpp`, you can select different pin configurations by uncommenting the appropriate include:
+
+```cpp
+// ===============================================================
+// IMPORTANT: Include one of the pin configuration files:
+#include "camera_pins/wrover.h"
+// #include "camera_pins/esp32cam.h"
+// #include "camera_pins/alt_pins.h"
+// ===============================================================
+```
 
 ## Software Setup
 
@@ -58,7 +114,7 @@ Connect the camera to your ESP32-WROVER-DEV using the following pins:
 
 ## Time-Lapse Settings
 
-The default time-lapse interval is set to 60 seconds. To change this, modify the `TIMELAPSE_INTERVAL` constant in `src/main.cpp`:
+The default time-lapse interval is set to 60 seconds. To change this, modify the `TIMELAPSE_INTERVAL` constant:
 
 ```cpp
 const unsigned long TIMELAPSE_INTERVAL = 60000; // 1 minute interval (in milliseconds)
@@ -66,11 +122,23 @@ const unsigned long TIMELAPSE_INTERVAL = 60000; // 1 minute interval (in millise
 
 **Note**: The current implementation demonstrates the time-lapse concept but doesn't save images to storage. For a complete time-lapse solution, you would need to add code for saving images to an SD card or other storage.
 
+## Debugging
+
+When using `main_configurable.cpp`, the code provides enhanced debugging information:
+
+- PSRAM detection and reporting
+- Camera pin configuration display
+- Detailed error messages during camera initialization
+- Troubleshooting tips displayed on failure
+- ESP error code translation to readable messages
+
 ## Troubleshooting
 
 - If the camera fails to initialize, check your camera connections
 - If WiFi connection fails, verify your SSID and password
 - If the web page loads but no image appears, check if your camera is properly supported
+- PSRAM issues can cause higher resolution captures to fail; try a lower resolution
+- Verify you're using the correct pin configuration for your hardware model
 
 ## Customization
 
