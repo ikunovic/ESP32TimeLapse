@@ -11,9 +11,10 @@
 // #include "camera_pins/alt_pins.h"
 // ===============================================================
 
-// Replace with your WiFi credentials
-const char* ssid = "Kunovic";
-const char* password = "55886622Kunovic";
+// Include WiFi credentials from a separate file
+// NOTE: wifi_credentials.h is not tracked by Git
+// Copy wifi_credentials_template.h to wifi_credentials.h and update with your credentials
+#include "wifi_credentials.h"
 
 // Web server port
 WiFiServer server(80);

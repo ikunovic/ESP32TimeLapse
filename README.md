@@ -34,11 +34,14 @@ Connect the camera to your ESP32-WROVER-DEV using the following pins:
 ## Software Setup
 
 1. Open the project in PlatformIO
-2. Edit the WiFi credentials in `src/main.cpp`:
-   ```cpp
-   const char* ssid = "YourWiFiSSID";
-   const char* password = "YourWiFiPassword";
-   ```
+2. Set up WiFi credentials:
+   - Copy `src/wifi_credentials_template.h` to `src/wifi_credentials.h`
+   - Edit `src/wifi_credentials.h` with your WiFi credentials:
+     ```cpp
+     const char* ssid = "YourWiFiSSID";
+     const char* password = "YourWiFiPassword";
+     ```
+   - Note: `wifi_credentials.h` is not tracked by Git for security
 3. Build and upload the firmware to your ESP32-WROVER-DEV board
 
 ## Usage
