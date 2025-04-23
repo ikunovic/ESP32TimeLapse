@@ -6,14 +6,14 @@
 
 // ===============================================================
 // IMPORTANT: Include one of the pin configuration files:
-// #include "camera_pins/wrover.h"
+#include "camera_pins/wrover.h"
 // #include "camera_pins/esp32cam.h"
 // #include "camera_pins/alt_pins.h"
 // ===============================================================
 
 // Replace with your WiFi credentials
-const char* ssid = "YourWiFiSSID";
-const char* password = "YourWiFiPassword";
+const char* ssid = "Kunovic";
+const char* password = "55886622Kunovic";
 
 // Web server port
 WiFiServer server(80);
@@ -119,6 +119,7 @@ bool initCamera() {
   Serial.printf("- fb_count: %d\n", config.fb_count);
   Serial.printf("- xclk_freq_hz: %d\n", config.xclk_freq_hz);
   
+  Serial.println("configurable------------------------------------------------------");
   // Initialize camera with delay
   delay(100);
   Serial.println("Initializing camera...");
@@ -230,4 +231,24 @@ void setup() {
     Serial.println("");
     Serial.println("WiFi connection failed");
   }
+} 
+
+void loop() {
+  // Handle time-lapse functionality and web server clients
+  if (timelapseActive && millis() - lastCaptureTime >= TIMELAPSE_INTERVAL) {
+    lastCaptureTime = millis();
+    // Here you would implement the time-lapse capture
+    Serial.println("Time-lapse capture triggered");
+  }
+  
+  // Handle web clients
+  WiFiClient client = server.available();
+  if (client) {
+    Serial.println("New client connected");
+    // Handle the client connection (you'd implement this based on your web interface needs)
+    client.stop();
+  }
+  
+  // Small delay to prevent the loop from running too fast
+  delay(10);
 } 
