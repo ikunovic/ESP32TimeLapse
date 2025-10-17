@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prosječna brzina udaraca (10 s)</title>
+<style>
+  body {font-family: Arial, sans-serif; background:#0b1023; color:#e5e7eb; text-align:center; padding:20px;}
+  h1 {color:#22c55e;}
+  .val {font-size:2em; margin:10px 0;}
+  button {padding:12px 20px; margin:8px; border:none; border-radius:10px; font-size:1em; font-weight:bold;}
+  #start {background:#22c55e; color:#000;}
+</style>
+</head>
+<body>
+  <h1>Mjerenje brzine udaraca (10 s)</h1>
+  <div class="val">⏱️ Vrijeme: <span id="time">10.0</span> s</div>
+  <div class="val">🏃 Trenutna brzina: <span id="vel">0.00</span> m/s</div>
+  <div class="val">📊 Prosječna brzina: <span id="avg">–</span> m/s</div>
+  <button id="start">▶ Pokreni</button>
+
+<script>
+(() => {
+  const velEl = document.getElementById('vel');
+  const avgEl = document.getElementById('avg');
+  const timeEl = document.getElementById('time');
+  const startBtn = document.getElementById('start');
+
+  const DURATION = 10000; // 10 s
+  const LEAK = 0.98; // leaky integrator
+  let running = false, startTime=0, v=0, lastT=0, samples=[];
+
+  function onMotion(e){
+    if(!running) return;
+    const a = e.accelerationIncludingGravity || e.acceleration;
+    if(!a) return;
+    const t = performance.now();
+    const dt = (lastT>0)?(t-lastT)/1000:0;
+    lastT = t;
+    const ax=a.x||0, ay=a.y||0, az=a.z||0;
+    const mag=Math.sqrt(ax*ax+ay*ay+az*az);
+    v = LEAK*v + mag*dt;
+    velEl.textContent = v.toFixed(2);
+    samples.push(v);
+  }
+
+  function stop(){
+    running=false;
+    window.removeEventListener('devicemotion', onMotion);
+    const avg = samples.reduce((a,b)=>a+b,0)/samples.length || 0;
+    avgEl.textContent = avg.toFixed(2);
+    timeEl.textContent = "0.0";
+  }
+
+  function updateTime(){
+    if(!running) return;
+    const now = performance.now();
+    const elapsed = now - startTime;
+    const left = Math.max(0, DURATION - elapsed);
+    timeEl.textContent = (left/1000).toFixed(1);
+    if(left<=0){ stop(); return; }
+    requestAnimationFrame(updateTime);
+  }
+
+  async function start(){
+    if(running) return;
+    if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function'){
+      const p=await DeviceMotionEvent.requestPermission().catch(()=> 'denied');
+      if(p!=='granted'){ alert('Dopusti pristup senzorima pokreta.'); return; }
+    }
+    running=true; v=0; lastT=0; samples=[];
+    startTime=performance.now();
+    avgEl.textContent = "–";
+    velEl.textContent = "0.00";
+    timeEl.textContent = "10.0";
+    window.addEventListener('devicemotion', onMotion, {passive:true});
+    requestAnimationFrame(updateTime);
+  }
+
+  startBtn.addEventListener('click', start);
+})();
+</script>
+</body>
+</html>
