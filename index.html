@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="hr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prosječna brzina udaraca (10 s)</title>
+<title>Punch Direction Counter (10 s)</title>
 <style>
-  body {font-family: Arial, sans-serif; background:#0b1023; color:#e5e7eb; text-align:center; padding:20px;}
+  body {font-family:Arial, sans-serif; background:#0b1023; color:#e5e7eb; text-align:center; padding:20px;}
   h1 {color:#22c55e;}
   .val {font-size:2em; margin:10px 0;}
   button {padding:12px 20px; margin:8px; border:none; border-radius:10px; font-size:1em; font-weight:bold;}
@@ -13,22 +13,29 @@
 </style>
 </head>
 <body>
-  <h1>Mjerenje brzine udaraca (10 s)</h1>
-  <div class="val">⏱️ Vrijeme: <span id="time">10.0</span> s</div>
-  <div class="val">🏃 Trenutna brzina: <span id="vel">0.00</span> m/s</div>
-  <div class="val">📊 Prosječna brzina: <span id="avg">–</span> m/s</div>
-  <button id="start">▶ Pokreni</button>
+  <h1>Direction Change Counter (10 s)</h1>
+  <div class="val">⏱️ Time left: <span id="time">10.0</span> s</div>
+  <div class="val">🏃 Velocity: <span id="vel">0.00</span> m/s</div>
+  <div class="val">↔️ Direction changes: <span id="dirs">0</span></div>
+  <div class="val">📊 Avg velocity: <span id="avg">–</span> m/s</div>
+  <button id="start">▶ Start</button>
 
 <script>
 (() => {
   const velEl = document.getElementById('vel');
+  const dirsEl = document.getElementById('dirs');
   const avgEl = document.getElementById('avg');
   const timeEl = document.getElementById('time');
   const startBtn = document.getElementById('start');
 
-  const DURATION = 10000; // 10 s
-  const LEAK = 0.98; // leaky integrator
-  let running = false, startTime=0, v=0, lastT=0, samples=[];
+  const DURATION = 10000;   // 10 s
+  const LEAK = 0.98;
+  const VEL_THRESH = 15;    // velocity threshold
+  const DIR_SMOOTH = 0.7;   // low-pass for direction
+  let running=false, startTime=0, lastT=0, v=0;
+  let samples=[], dirCount=0;
+  let prevSign=0;
+  let dirX=0, dirY=0, dirZ=0;
 
   function onMotion(e){
     if(!running) return;
@@ -36,10 +43,28 @@
     if(!a) return;
     const t = performance.now();
     const dt = (lastT>0)?(t-lastT)/1000:0;
-    lastT = t;
+    lastT=t;
     const ax=a.x||0, ay=a.y||0, az=a.z||0;
     const mag=Math.sqrt(ax*ax+ay*ay+az*az);
     v = LEAK*v + mag*dt;
+
+    // direction (dominant axis sign)
+    // smooth orientation vector
+    dirX = DIR_SMOOTH*dirX + (1-DIR_SMOOTH)*ax;
+    dirY = DIR_SMOOTH*dirY + (1-DIR_SMOOTH)*ay;
+    dirZ = DIR_SMOOTH*dirZ + (1-DIR_SMOOTH)*az;
+    const abs = Math.max(Math.abs(dirX), Math.abs(dirY), Math.abs(dirZ));
+    let sign = 0;
+    if (abs === Math.abs(dirX)) sign = Math.sign(dirX);
+    else if (abs === Math.abs(dirY)) sign = Math.sign(dirY);
+    else sign = Math.sign(dirZ);
+
+    if (v > VEL_THRESH && sign !== 0 && sign !== prevSign) {
+      dirCount++;
+      dirsEl.textContent = dirCount;
+      prevSign = sign;
+    }
+
     velEl.textContent = v.toFixed(2);
     samples.push(v);
   }
@@ -66,13 +91,11 @@
     if(running) return;
     if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function'){
       const p=await DeviceMotionEvent.requestPermission().catch(()=> 'denied');
-      if(p!=='granted'){ alert('Dopusti pristup senzorima pokreta.'); return; }
+      if(p!=='granted'){ alert('Please allow motion sensor access.'); return; }
     }
-    running=true; v=0; lastT=0; samples=[];
-    startTime=performance.now();
-    avgEl.textContent = "–";
-    velEl.textContent = "0.00";
-    timeEl.textContent = "10.0";
+    running=true; startTime=performance.now();
+    v=0; lastT=0; samples=[]; dirCount=0; prevSign=0;
+    dirsEl.textContent="0"; avgEl.textContent="–";
     window.addEventListener('devicemotion', onMotion, {passive:true});
     requestAnimationFrame(updateTime);
   }
